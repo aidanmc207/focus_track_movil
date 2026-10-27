@@ -26,6 +26,19 @@ class FocusTrackApp extends StatelessWidget {
   }
 }
 
+/// Niveles de prioridad con los que se clasifica la sesion de trabajo
+enum Prioridad {
+  baja('Baja', Icons.arrow_downward, Color(0xFF607D8B)), // Gris azulado
+  media('Media', Icons.horizontal_rule, Color(0xFFFF8F00)), // Ambar
+  alta('Alta', Icons.priority_high, Color(0xFF8E1B2E)); // Borgona
+
+  const Prioridad(this.etiqueta, this.icono, this.color);
+
+  final String etiqueta;
+  final IconData icono;
+  final Color color;
+}
+
 /// Pantalla con estado reactivo para registrar metas y productividad
 class PantallaPrincipalMetas extends StatefulWidget {
   const PantallaPrincipalMetas({super.key});
@@ -35,9 +48,12 @@ class PantallaPrincipalMetas extends StatefulWidget {
 }
 
 class _PantallaPrincipalMetasState extends State<PantallaPrincipalMetas> {
+  static const int _limiteDiario = 10;
+
   int _metasCompletadas = 0;
   final int _metaObjetivo = 5;
   String _nivelProductividad = 'Inicial';
+  Prioridad _prioridad = Prioridad.media;
 
   void _actualizarNivel() {
     if (_metasCompletadas == 0) {
@@ -53,6 +69,21 @@ class _PantallaPrincipalMetasState extends State<PantallaPrincipalMetas> {
   }
 
   void _incrementarMeta() {
+    // Bloqueo seguro: no se permite superar el limite maximo diario
+    if (_metasCompletadas >= _limiteDiario) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Ha alcanzado el límite máximo diario de metas '
+              '($_limiteDiario/$_limiteDiario). ¡Excelente jornada!',
+            ),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      return;
+    }
     setState(() {
       _metasCompletadas++;
       _actualizarNivel();
@@ -126,7 +157,9 @@ class _PantallaPrincipalMetasState extends State<PantallaPrincipalMetas> {
       // SafeArea garantiza visualizacion correcta fuera del notch
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
+          // Margen inferior extra para que los botones flotantes no tapen
+          // el panel informativo al desplazarse
+          padding: const EdgeInsets.fromLTRB(20.0, 24.0, 20.0, 96.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -197,17 +230,50 @@ class _PantallaPrincipalMetasState extends State<PantallaPrincipalMetas> {
               ),
               const SizedBox(height: 24.0),
 
+              // Selector de Prioridad de la Sesion
+              Text(
+                'Prioridad de la sesión',
+                style: tema.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8.0),
+              SegmentedButton<Prioridad>(
+                segments: [
+                  for (final prioridad in Prioridad.values)
+                    ButtonSegment<Prioridad>(
+                      value: prioridad,
+                      icon: Icon(prioridad.icono),
+                      label: Text(prioridad.etiqueta),
+                    ),
+                ],
+                selected: {_prioridad},
+                onSelectionChanged: (Set<Prioridad> seleccion) {
+                  setState(() {
+                    _prioridad = seleccion.first;
+                  });
+                },
+                style: SegmentedButton.styleFrom(
+                  selectedBackgroundColor: _prioridad.color.withValues(
+                    alpha: 0.18,
+                  ),
+                  selectedForegroundColor: _prioridad.color,
+                ),
+              ),
+              const SizedBox(height: 24.0),
+
               // Panel de Informacion Tecnica
               Card(
                 elevation: 1.0,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12.0),
-                  side: BorderSide(color: colores.outlineVariant),
+                  side: BorderSide(color: _prioridad.color, width: 1.5),
                 ),
-                child: const ListTile(
-                  leading: Icon(Icons.info_outline),
-                  title: Text('Sesión Móvil Activa'),
+                child: ListTile(
+                  leading: Icon(_prioridad.icono, color: _prioridad.color),
+                  title: const Text('Sesión Móvil Activa'),
                   subtitle: Text(
+                    'Prioridad ${_prioridad.etiqueta}. '
                     'Renderizado nativo impulsado por el motor Impeller '
                     'y gestionado con Hot Reload.',
                   ),

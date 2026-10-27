@@ -59,4 +59,56 @@ void main() {
     expect(find.text('0 / 5'), findsOneWidget);
     expect(find.text('Metas restablecidas exitosamente.'), findsOneWidget);
   });
+
+  testWidgets('No permite superar el límite diario de 10 metas', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const FocusTrackApp());
+
+    await completarMetas(tester, 10);
+    expect(find.text('10 / 5'), findsOneWidget);
+    expect(find.byType(SnackBar), findsNothing);
+
+    await completarMetas(tester, 1);
+    expect(find.text('10 / 5'), findsOneWidget);
+    expect(
+      find.text(
+        'Ha alcanzado el límite máximo diario de metas (10/10). '
+        '¡Excelente jornada!',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('No hay desbordamientos en un teléfono pequeño', (tester) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const FocusTrackApp());
+    await completarMetas(tester, 10);
+
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('El selector de prioridad actualiza el panel informativo', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const FocusTrackApp());
+
+    expect(find.textContaining('Prioridad Media.'), findsOneWidget);
+
+    await tester.tap(find.text('Alta'));
+    await tester.pump();
+    expect(find.textContaining('Prioridad Alta.'), findsOneWidget);
+
+    final borde =
+        tester.widget<Card>(find.byType(Card).last).shape!
+            as RoundedRectangleBorder;
+    expect(borde.side.color, Prioridad.alta.color);
+
+    await tester.tap(find.text('Baja'));
+    await tester.pump();
+    expect(find.textContaining('Prioridad Baja.'), findsOneWidget);
+  });
 }
